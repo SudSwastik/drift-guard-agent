@@ -1,6 +1,6 @@
 # Testing Drift Guard Agent
 
-This guide covers the service currently implemented: health endpoints, request IDs, configuration, and its container setup. API contract validation, drift analysis, and the ADK agent are not implemented yet, so their tests will be added with those features.
+This guide covers health endpoints, request IDs, configuration, versioned API contract loading, and the container setup. Payload validation, drift analysis, and the ADK agent follow in later features.
 
 ## Set up
 
@@ -12,7 +12,7 @@ uv sync --locked --all-groups
 
 ## Run automated checks
 
-Run the health and request-context tests:
+Run all automated tests:
 
 ```sh
 uv run pytest
@@ -51,6 +51,37 @@ curl --fail -i -H 'X-Request-ID: manual-check-1' http://localhost:8000/health/li
 
 Expected: HTTP 200; the live response is `{"status":"ok"}`, the ready response includes service and version, and the final response includes `X-Request-ID: manual-check-1`. In local mode, `/docs` and `/openapi.json` should also respond.
 
+## Test versioned contracts (Feature 2)
+
+With the local server running, select the exact API, version, operation, and direction:
+
+```sh
+curl --fail --get http://localhost:8000/v1/contracts/payments/v1 \
+  --data-urlencode 'operation=POST /payments' \
+  --data-urlencode 'direction=request' \
+  -H 'X-Request-ID: contract-check-1'
+```
+
+Expected: HTTP 200 with `contractId`, `contentHash` (64 hexadecimal characters), `schemaDialect`, and `requestId`. Repeating the selection returns the same ID/hash. Logs contain `contract_loaded` at startup and `contract_selected` on access, both with the matching ID/hash. This endpoint reports contract metadata; it does not validate payment payloads yet.
+
+Replace `v1` with `v2` or `latest`: expect HTTP 404 with `error.code` equal to `unknown_contract`. Omitting operation or direction returns HTTP 422. No selection falls back to another version.
+
+The bundled fixture is `drift_guard/contracts/fixtures/payments-v1.json`. It defines required fields, strict numeric amounts, a minimum of 1, allowed currencies/payment types, and rejects additional fields. Contracts use JSON Schema draft 2020-12. This feature supports inline schemas only; `$ref`/`$dynamicRef` references are rejected at startup.
+
+To configure a different directory of trusted contract JSON files:
+
+```sh
+DRIFT_GUARD_CONTRACTS_DIRECTORY=/path/to/contracts uv run uvicorn drift_guard.main:app
+```
+
+The directory replaces the bundled fixtures. It must contain at least one `*.json` file; every file must have a valid envelope/schema and a unique API/version/operation/direction identity. Invalid JSON, duplicate JSON keys, unsupported dialects/references, malformed schemas, and duplicate identities stop startup. Files are loaded once; restart to load changes. The SHA-256 hash covers the entire normalized envelope, ignoring whitespace/object key order while preserving array order.
+
+Run the contract-specific automated cases:
+
+```sh
+uv run pytest -v tests/test_contracts.py
+```
+
 ## Test the container
 
 With Docker running:
@@ -59,6 +90,8 @@ With Docker running:
 bash infra/scripts/compose.sh up --build -d
 bash infra/scripts/compose.sh ps
 curl --fail http://localhost:8080/health/ready
+curl --fail --get http://localhost:8080/v1/contracts/payments/v1 \
+  --data-urlencode 'operation=POST /payments' --data-urlencode 'direction=request'
 bash infra/scripts/compose.sh logs --tail=100 drift-guard
 bash infra/scripts/compose.sh down
 ```
@@ -95,6 +128,8 @@ CI runs `bash infra/scripts/check-rollback.sh` on an isolated runner. It builds 
 - Valid request IDs are preserved; unsafe IDs are replaced.
 - Interactive docs and the OpenAPI schema are hidden in production mode.
 - Invalid settings are rejected, and environment settings are loaded correctly.
+- Contract loading validates schemas/identities, preserves stable content hashes, and fails startup on invalid or duplicate contracts.
+- Contract selection requires every identity field and reports unknown selections without version fallback.
 - HTTP failures carry a structured error and request ID; internal errors and validation errors exclude sensitive values from responses.
 - CI checks formatting, pytest, Ruff, mypy, dependency vulnerabilities, runtime lock consistency, container health, and image rollback.
 

@@ -1,0 +1,19 @@
+{
+  "api": "payments",
+  "version": "v1",
+  "operation": "POST /payments",
+  "direction": "request",
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Create payment request v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["customerId", "amount", "currency", "paymentType"],
+    "properties": {
+      "customerId": {"type": "string", "minLength": 1, "maxLength": 64},
+      "amount": {"type": "number", "minimum": 1},
+      "currency": {"type": "string", "enum": ["INR", "USD"]},
+      "paymentType": {"type": "string", "enum": ["CARD", "UPI"]}
+    }
+  }
+}
