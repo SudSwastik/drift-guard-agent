@@ -48,3 +48,9 @@ crash.log
 # codegraph
 .codegraph/
 .uv-cache/
+.deploy/
+
+# Local planning and deployment notes excluded from publishing
+/docs/DEVELOPMENT.md
+/docs/DRIFT_GUARD_AGENT.md
+/docs/IMPLEMENTATION_PLAN.md

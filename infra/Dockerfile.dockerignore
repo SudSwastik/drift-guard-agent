@@ -1,12 +1,16 @@
 .git
 .codegraph
+.deploy
 .venv
+.uv-cache
 __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
 .env
 .env.*
-!.env.example
+**/.env
+**/.env.*
+!infra/.env.example
 tests
 docs
