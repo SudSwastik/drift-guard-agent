@@ -8,6 +8,8 @@ docker_compose() {
 }
 export COMPOSE_PROJECT_NAME=drift-guard-rehearsal
 export DRIFT_GUARD_ENVIRONMENT=production
+export DRIFT_GUARD_API_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+export DRIFT_GUARD_BLOCKING_ENABLED=false
 export DRIFT_GUARD_STATE_DIR="$(mktemp -d)"
 cleanup() {
     docker_compose down --remove-orphans
@@ -21,6 +23,7 @@ docker build --file infra/Dockerfile --label rehearsal=candidate --tag drift-gua
 bash infra/scripts/release.sh deploy drift-guard-agent:baseline
 baseline="$(docker image inspect --format '{{.Id}}' drift-guard-agent:baseline)"
 bash infra/scripts/release.sh deploy drift-guard-agent:candidate
+python3 infra/scripts/smoke-validation.py http://127.0.0.1:8080
 candidate="$(docker image inspect --format '{{.Id}}' drift-guard-agent:candidate)"
 [[ "$baseline" != "$candidate" ]]
 bash infra/scripts/release.sh rollback
@@ -29,3 +32,4 @@ container_id="$(docker_compose ps --quiet drift-guard)"
 curl --fail --silent http://127.0.0.1:8080/health/ready |
     python3 -c 'import json,sys; assert json.load(sys.stdin)["status"] == "ready"'
 printf 'Rollback restored the baseline image and readiness passed.\n'
+python3 infra/scripts/smoke-validation.py http://127.0.0.1:8080

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError
 from pydantic import ValidationError
 
@@ -34,6 +34,8 @@ def _check_references(value: Any) -> None:
     if isinstance(value, dict):
         if isinstance(value.get("$ref"), str) or isinstance(value.get("$dynamicRef"), str):
             raise ContractLoadError("Schema references are not supported; use an inline schema")
+        if isinstance(value.get("format"), str) and value["format"] not in FormatChecker.checkers:
+            raise ContractLoadError("Schema uses an unsupported format")
         for child in value.values():
             _check_references(child)
     elif isinstance(value, list):

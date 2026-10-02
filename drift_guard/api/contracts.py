@@ -3,14 +3,17 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
+from drift_guard.api.security import require_api_key
 from drift_guard.contracts.models import DIALECT, Direction
 from drift_guard.contracts.repository import ContractRepository, UnknownContractError
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/v1/contracts", tags=["contracts"])
+router = APIRouter(
+    prefix="/v1/contracts", tags=["contracts"], dependencies=[Depends(require_api_key)]
+)
 
 
 @router.get("/{api}/{version}")

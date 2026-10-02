@@ -1,5 +1,6 @@
 """Assemble the HTTP application from its components."""
 
+import anyio
 from fastapi import FastAPI
 
 from drift_guard import __version__
@@ -7,6 +8,7 @@ from drift_guard.api.contracts import router as contracts_router
 from drift_guard.api.errors import register_error_handlers
 from drift_guard.api.health import router as health_router
 from drift_guard.api.middleware import request_context
+from drift_guard.api.validation import router as validation_router
 from drift_guard.config import Settings, get_settings
 from drift_guard.contracts.repository import (
     BUNDLED_CONTRACTS,
@@ -37,8 +39,11 @@ def create_app(
     )
     app.state.settings = service_settings
     app.state.contract_repository = repository
+    app.state.validation_slots = anyio.CapacityLimiter(service_settings.validation_concurrency)
+    app.state.validation_workers = anyio.CapacityLimiter(service_settings.validation_concurrency)
     register_error_handlers(app)
     app.middleware("http")(request_context)
     app.include_router(health_router)
     app.include_router(contracts_router)
+    app.include_router(validation_router)
     return app
