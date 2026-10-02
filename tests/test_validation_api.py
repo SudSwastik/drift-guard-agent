@@ -9,13 +9,14 @@ from typing import Any
 import anyio
 import pytest
 from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient, Response
+from httpx import Response
 from pydantic import SecretStr
 
 from drift_guard.api import validation as validation_api
 from drift_guard.api.application import create_app
 from drift_guard.config import Settings
 from drift_guard.contracts.repository import FileContractRepository
+from tests.client import managed_client
 from tests.test_validation import CASES, custom_contract
 
 KEY = "test-only-api-key-32-characters-long"
@@ -34,7 +35,7 @@ def envelope(payload: Any = None, **changes: Any) -> dict[str, Any]:
 
 def post(app: FastAPI, content: str | bytes, **headers: str) -> Response:
     async def send() -> Response:
-        async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
+        async with managed_client(app) as client:
             return await client.post(
                 "/v1/validate",
                 content=content,
@@ -51,7 +52,7 @@ def test_golden_cases_through_real_worker_and_authenticated_api(blocking: bool) 
     )
 
     async def send() -> None:
-        async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
+        async with managed_client(app) as client:
             for case in CASES:
                 response = await client.post(
                     "/v1/validate",
@@ -134,7 +135,7 @@ def test_streamed_body_limit_is_enforced_without_content_length() -> None:
         yield b" " * 100
 
     async def send() -> None:
-        async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
+        async with managed_client(app) as client:
             response = await client.post(
                 "/v1/validate",
                 content=chunks(),
@@ -198,7 +199,7 @@ def test_slow_body_times_out_and_releases_capacity() -> None:
         yield b"{}"
 
     async def send() -> None:
-        async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
+        async with managed_client(app) as client:
             response = await client.post(
                 "/v1/validate",
                 content=slow_body(),
@@ -218,7 +219,7 @@ def test_busy_capacity_returns_429_and_recovers() -> None:
         slots = app.state.validation_slots
         slots.acquire_nowait()
         try:
-            async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
+            async with managed_client(app) as client:
                 response = await client.post("/v1/validate", json=envelope({}))
                 assert response.status_code == 429
                 assert response.headers["retry-after"] == "1"
@@ -237,7 +238,7 @@ def test_cpu_timeout_kills_worker_and_next_request_recovers(tmp_path: Path) -> N
     )
 
     async def send() -> None:
-        async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:
+        async with managed_client(app) as client:
             data = envelope("a", api="example", operation="POST /example")
             assert (await client.post("/v1/validate", json=data)).status_code == 200
             data["payload"] = "a" * 32 + "!"

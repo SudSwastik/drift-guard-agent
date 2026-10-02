@@ -1,6 +1,7 @@
 """Validate payloads with authentication, request limits, and killable CPU workers."""
 
 import logging
+import re
 from typing import Any
 
 import anyio
@@ -12,6 +13,8 @@ from drift_guard.api.request_body import read_validation_request
 from drift_guard.api.security import require_api_key
 from drift_guard.config import Settings
 from drift_guard.contracts.repository import ContractRepository, UnknownContractError
+from drift_guard.drift.service import ObservationService, PersistenceUnavailable
+from drift_guard.storage.repository import IdempotencyConflict
 from drift_guard.validation.engine import validate_payload
 from drift_guard.validation.models import ValidationRequest, ValidationResponse
 
@@ -37,6 +40,12 @@ request_schema["properties"]["context"]["anyOf"][0] = context_schema
 async def validate(request: Request) -> dict[str, Any]:
     settings: Settings = request.app.state.settings
     repository: ContractRepository = request.app.state.contract_repository
+    observations: ObservationService = request.app.state.observation_service
+    idempotency_key = request.headers.get("idempotency-key")
+    if idempotency_key is not None and not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", idempotency_key):
+        raise ServiceError(
+            422, "invalid_idempotency_key", "Idempotency-Key must contain 1 to 128 safe characters."
+        )
     slots: anyio.CapacityLimiter = request.app.state.validation_slots
     try:
         slots.acquire_nowait()
@@ -60,6 +69,22 @@ async def validate(request: Request) -> dict[str, Any]:
                 cancellable=True,
                 limiter=request.app.state.validation_workers,
             )
+        try:
+            receipt = await observations.record(
+                submitted, result, idempotency_key, request.state.request_id
+            )
+        except IdempotencyConflict:
+            raise ServiceError(
+                409,
+                "idempotency_conflict",
+                "Idempotency key already refers to a different request or rules.",
+            ) from None
+        except PersistenceUnavailable:
+            raise ServiceError(
+                503,
+                "observation_storage_unavailable",
+                "Required observation storage is unavailable.",
+            ) from None
     except TimeoutError:
         raise ServiceError(
             504, "validation_timeout", "Validation exceeded its time budget."
@@ -86,4 +111,8 @@ async def validate(request: Request) -> dict[str, Any]:
             "policy_version": result.policyVersion,
         },
     )
-    return {**result.model_dump(mode="json"), "requestId": request.state.request_id}
+    return {
+        **result.model_dump(mode="json"),
+        "requestId": request.state.request_id,
+        "observation": receipt.model_dump(mode="json"),
+    }

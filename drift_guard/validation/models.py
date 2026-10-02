@@ -5,6 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from drift_guard.contracts.models import Direction
+from drift_guard.drift.models import ObservationReceipt
 
 Severity = Literal["NONE", "LOW", "MEDIUM", "HIGH"]
 Decision = Literal["ALLOW", "WARN", "BLOCK"]
@@ -56,3 +57,4 @@ class ValidationResult(BaseModel):
 
 class ValidationResponse(ValidationResult):
     requestId: str
+    observation: ObservationReceipt
