@@ -1,0 +1,29 @@
+services:
+  drift-guard:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      DRIFT_GUARD_ENVIRONMENT: ${DRIFT_GUARD_ENVIRONMENT:-local}
+      DRIFT_GUARD_SERVICE_NAME: ${DRIFT_GUARD_SERVICE_NAME:-drift-guard-agent}
+      DRIFT_GUARD_LOG_LEVEL: ${DRIFT_GUARD_LOG_LEVEL:-INFO}
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8080/health/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
