@@ -47,3 +47,4 @@ crash.log
 
 # codegraph
 .codegraph/
+.uv-cache/
