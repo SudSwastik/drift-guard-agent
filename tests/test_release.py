@@ -30,6 +30,8 @@ elif args[0] == "inspect":
 elif args[:2] == ["compose", "ps"]:
     print("test-container" if state["current"] else "")
 elif args[:2] == ["compose", "up"]:
+    if args[-1] == "postgres":
+        sys.exit(0)
     state["current"] = os.environ["DRIFT_GUARD_IMAGE"]
     path.write_text(json.dumps(state))
     sys.exit(1 if state["current"] == "sha256:bad" else 0)

@@ -30,8 +30,24 @@ class Settings(BaseSettings):
     max_findings: int = Field(default=100, ge=1, le=500)
     validation_timeout_seconds: float = Field(default=5, ge=0.1, le=30)
     validation_concurrency: int = Field(default=2, ge=1, le=8)
+    database_url: SecretStr | None = None
+    postgres_host: str = Field(default="127.0.0.1", min_length=1, max_length=253)
+    postgres_port: int = Field(default=5432, ge=1, le=65535)
+    postgres_user: str = Field(default="drift_guard", min_length=1, max_length=63)
+    postgres_database: str = Field(default="drift_guard", min_length=1, max_length=63)
+    postgres_password: SecretStr | None = Field(default=None, min_length=16, max_length=256)
+    observation_hmac_key: SecretStr | None = Field(default=None, min_length=32, max_length=256)
+    observation_failure_mode: Literal["best_effort", "required"] = "best_effort"
+    storage_timeout_seconds: float = Field(default=2, ge=0.1, le=10)
+    observation_retention_days: int = Field(default=14, ge=1, le=365)
+    retention_interval_seconds: int = Field(default=600, ge=10, le=86400)
+    drift_min_samples: int = Field(default=10, ge=2, le=100000)
+    drift_min_count: int = Field(default=3, ge=2, le=100000)
+    drift_min_rate: float = Field(default=0.2, gt=0, le=1)
 
-    @field_validator("api_key", mode="before")
+    @field_validator(
+        "api_key", "database_url", "observation_hmac_key", "postgres_password", mode="before"
+    )
     @classmethod
     def normalize_empty_api_key(cls, value: Any) -> Any:
         return None if value == "" else value

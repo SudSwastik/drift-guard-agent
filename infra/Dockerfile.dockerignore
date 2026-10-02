@@ -1,6 +1,8 @@
 .git
 .codegraph
 .deploy
+.state
+*.png
 .venv
 .uv-cache
 __pycache__

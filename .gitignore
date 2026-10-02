@@ -49,6 +49,7 @@ crash.log
 .codegraph/
 .uv-cache/
 .deploy/
+.state/
 
 # Local planning and deployment notes excluded from publishing
 /docs/DEVELOPMENT.md

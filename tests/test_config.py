@@ -60,6 +60,12 @@ def test_empty_api_key_is_only_allowed_for_local_development(
         {"validation_timeout_seconds": 0},
         {"validation_concurrency": 0},
         {"api_key": SecretStr("short-private-key")},
+        {"storage_timeout_seconds": 0},
+        {"observation_retention_days": 0},
+        {"drift_min_samples": 1},
+        {"drift_min_count": 1},
+        {"drift_min_rate": 0},
+        {"observation_failure_mode": "silent"},
     ],
 )
 def test_invalid_validation_configuration_fails(changes: dict[str, object]) -> None:

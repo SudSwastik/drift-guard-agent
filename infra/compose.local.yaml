@@ -1,0 +1,5 @@
+# Optional host access for running Uvicorn outside Docker against the bundled database.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"

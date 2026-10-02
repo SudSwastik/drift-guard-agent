@@ -45,8 +45,9 @@ if [[ -n "$container_id" ]]; then
 fi
 
 start_image() {
+    docker_compose up --detach --wait --wait-timeout 90 postgres || return 1
     DRIFT_GUARD_IMAGE="$1" docker_compose up --detach --no-build --pull never \
-        --force-recreate --wait --wait-timeout 90 drift-guard
+        --no-deps --force-recreate --wait --wait-timeout 90 drift-guard
 }
 
 if ! start_image "$target_id"; then

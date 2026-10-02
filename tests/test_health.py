@@ -4,20 +4,21 @@ from collections.abc import Mapping
 
 import anyio
 import pytest
-from httpx import ASGITransport, AsyncClient, Response
+from fastapi import FastAPI
+from httpx import Response
 from pydantic import BaseModel, SecretStr
-from starlette.types import ASGIApp
 
 from drift_guard.api.application import create_app
 from drift_guard.config import Settings
+from drift_guard.storage.repository import SQLObservationRepository
+from tests.client import managed_client
 
 
-def request(app: ASGIApp, path: str, headers: Mapping[str, str] | None = None) -> Response:
+def request(app: FastAPI, path: str, headers: Mapping[str, str] | None = None) -> Response:
     """Send an in-process request without starting a server or deprecated test client."""
 
     async def send() -> Response:
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with managed_client(app) as client:
             return await client.get(path, headers=headers)
 
     return anyio.run(send)
@@ -53,8 +54,11 @@ def test_request_id_is_returned_and_invalid_ids_are_replaced() -> None:
 def test_openapi_docs_are_hidden_in_production() -> None:
     app = create_app(
         Settings(
-            environment="production", api_key=SecretStr("test-only-api-key-32-characters-long")
-        )
+            environment="production",
+            api_key=SecretStr("test-only-api-key-32-characters-long"),
+            database_url=SecretStr("sqlite+aiosqlite:///:memory:"),
+        ),
+        observation_repository=SQLObservationRepository("sqlite+aiosqlite:///:memory:"),
     )
 
     assert request(app, "/docs").status_code == 404
@@ -95,9 +99,7 @@ def test_invalid_request_error_excludes_submitted_values(content: str) -> None:
         return payload
 
     async def send() -> Response:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://testserver"
-        ) as client:
+        async with managed_client(app) as client:
             return await client.post(
                 "/test-request", content=content, headers={"Content-Type": "application/json"}
             )
