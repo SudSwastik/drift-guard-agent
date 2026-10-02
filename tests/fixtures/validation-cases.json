@@ -1,0 +1,48 @@
+[
+  {
+    "name": "valid_payment",
+    "payload": {"customerId":"C123","amount":1000,"currency":"INR","paymentType":"CARD"},
+    "findings": [], "severity": "NONE"
+  },
+  {
+    "name": "renamed_field_and_string_amount",
+    "payload": {"customerId":"C123","amount":"1000","currency":"INR","paymentMethod":"CARD"},
+    "findings": [["invalid_type","/amount"],["unexpected_field","/paymentMethod"],["missing_required_field","/paymentType"]],
+    "severity": "HIGH"
+  },
+  {
+    "name": "missing_amount",
+    "payload": {"customerId":"C123","currency":"USD","paymentType":"UPI"},
+    "findings": [["missing_required_field","/amount"]], "severity":"HIGH"
+  },
+  {
+    "name": "boolean_is_not_a_number",
+    "payload": {"customerId":"C123","amount":true,"currency":"INR","paymentType":"CARD"},
+    "findings": [["invalid_type","/amount"]], "severity":"HIGH"
+  },
+  {
+    "name": "amount_below_minimum",
+    "payload": {"customerId":"C123","amount":0,"currency":"INR","paymentType":"CARD"},
+    "findings": [["below_minimum","/amount"]], "severity":"MEDIUM"
+  },
+  {
+    "name": "unsupported_currency",
+    "payload": {"customerId":"C123","amount":1,"currency":"EUR","paymentType":"CARD"},
+    "findings": [["invalid_enum","/currency"]], "severity":"MEDIUM"
+  },
+  {
+    "name": "extra_field_only",
+    "payload": {"customerId":"C123","amount":1,"currency":"INR","paymentType":"CARD","extra":"private-value"},
+    "findings": [["unexpected_field","/extra"]], "severity":"LOW"
+  },
+  {
+    "name": "empty_customer_id",
+    "payload": {"customerId":"","amount":1,"currency":"INR","paymentType":"CARD"},
+    "findings": [["string_too_short","/customerId"]], "severity":"MEDIUM"
+  },
+  {
+    "name": "null_payload",
+    "payload": null,
+    "findings": [["invalid_type",""]], "severity":"HIGH"
+  }
+]

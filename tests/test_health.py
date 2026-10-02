@@ -5,7 +5,7 @@ from collections.abc import Mapping
 import anyio
 import pytest
 from httpx import ASGITransport, AsyncClient, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from starlette.types import ASGIApp
 
 from drift_guard.api.application import create_app
@@ -51,7 +51,11 @@ def test_request_id_is_returned_and_invalid_ids_are_replaced() -> None:
 
 
 def test_openapi_docs_are_hidden_in_production() -> None:
-    app = create_app(Settings(environment="production"))
+    app = create_app(
+        Settings(
+            environment="production", api_key=SecretStr("test-only-api-key-32-characters-long")
+        )
+    )
 
     assert request(app, "/docs").status_code == 404
     assert request(app, "/openapi.json").status_code == 404

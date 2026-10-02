@@ -8,7 +8,7 @@ check_dir="$(mktemp -d)"
 trap 'rm -rf "$check_dir"' EXIT
 
 uv sync --locked --all-groups
-uv run --locked ruff format --check drift_guard tests
+uv run --locked ruff format --check drift_guard tests infra/scripts/smoke-validation.py
 uv run --locked ruff check .
 uv run --locked mypy drift_guard
 uv run --locked pytest

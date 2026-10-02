@@ -6,6 +6,27 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 
+class ServiceError(Exception):
+    """A public error with a stable code and an input-independent message."""
+
+    def __init__(self, status: int, code: str, message: str) -> None:
+        self.status = status
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
+async def service_error(request: Request, exc: ServiceError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status,
+        content={
+            "error": {"code": exc.code, "message": exc.message},
+            "requestId": request.state.request_id,
+        },
+        headers={"Retry-After": "1"} if exc.status == 429 else None,
+    )
+
+
 async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
@@ -44,5 +65,6 @@ def internal_error(request_id: str) -> JSONResponse:
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    app.exception_handler(ServiceError)(service_error)
     app.exception_handler(HTTPException)(http_error)
     app.exception_handler(RequestValidationError)(invalid_request)

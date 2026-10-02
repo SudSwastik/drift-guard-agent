@@ -49,6 +49,7 @@ def test_hash_ignores_formatting_and_object_order_but_tracks_content(tmp_path: P
         {"$schema": "https://json-schema.org/draft-07/schema", "type": "object"},
         {"$schema": DIALECT, "$ref": "https://example.com/external.json"},
         {"$schema": DIALECT, "$ref": "#/$defs/missing"},
+        {"$schema": DIALECT, "type": "string", "format": "not-a-supported-format"},
     ],
 )
 def test_invalid_schema_prevents_startup(tmp_path: Path, schema: dict[str, Any]) -> None:
