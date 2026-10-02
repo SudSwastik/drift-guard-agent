@@ -18,8 +18,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.11.3"
-      - run: uv sync --locked --all-groups
-      - run: uv run ruff check .
-      - run: uv run mypy drift_guard
-      - run: uv run pytest
-      - run: docker build --tag drift-guard-agent:ci .
+      - name: Quality, dependency audit, and lock checks
+        run: bash infra/ci/checks.sh
+      - name: Build, smoke test, and rehearse image rollback
+        run: bash infra/scripts/check-rollback.sh

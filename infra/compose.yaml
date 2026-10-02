@@ -1,6 +1,11 @@
+name: drift-guard-agent
+
 services:
   drift-guard:
-    build: .
+    image: ${DRIFT_GUARD_IMAGE:-drift-guard-agent:local}
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
     ports:
       - "127.0.0.1:8080:8080"
     environment:

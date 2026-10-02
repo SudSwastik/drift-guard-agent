@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.lock ./requirements.lock
+COPY infra/requirements.lock ./requirements.lock
 RUN python -m pip install --no-cache-dir --require-hashes -r requirements.lock \
     && groupadd --system app \
     && useradd --system --gid app --home-dir /app app

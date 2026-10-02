@@ -3,16 +3,16 @@
 from collections.abc import Mapping
 
 import anyio
+import pytest
 from httpx import ASGITransport, AsyncClient, Response
+from pydantic import BaseModel
 from starlette.types import ASGIApp
 
+from drift_guard.api.application import create_app
 from drift_guard.config import Settings
-from drift_guard.main import create_app
 
 
-def request(
-    app: ASGIApp, path: str, headers: Mapping[str, str] | None = None
-) -> Response:
+def request(app: ASGIApp, path: str, headers: Mapping[str, str] | None = None) -> Response:
     """Send an in-process request without starting a server or deprecated test client."""
 
     async def send() -> Response:
@@ -55,3 +55,51 @@ def test_openapi_docs_are_hidden_in_production() -> None:
 
     assert request(app, "/docs").status_code == 404
     assert request(app, "/openapi.json").status_code == 404
+
+
+def test_unknown_route_returns_structured_error_with_request_id() -> None:
+    response = request(create_app(Settings(environment="test")), "/missing")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "http_404"
+    assert response.json()["requestId"] == response.headers["x-request-id"]
+
+
+def test_unexpected_error_does_not_expose_exception_details() -> None:
+    app = create_app(Settings(environment="test"))
+
+    @app.get("/test-failure")
+    async def failure() -> None:
+        raise RuntimeError("sensitive internal detail")
+
+    response = request(app, "/test-failure")
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "internal_error"
+    assert "sensitive internal detail" not in response.text
+    assert response.json()["requestId"] == response.headers["x-request-id"]
+
+
+class ExampleRequest(BaseModel):
+    amount: int
+
+
+@pytest.mark.parametrize("content", ['{"amount":"sensitive-value"}', '{"amount":"sensitive-value"'])
+def test_invalid_request_error_excludes_submitted_values(content: str) -> None:
+    app = create_app(Settings(environment="test"))
+
+    @app.post("/test-request")
+    async def example(payload: ExampleRequest) -> ExampleRequest:
+        return payload
+
+    async def send() -> Response:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.post(
+                "/test-request", content=content, headers={"Content-Type": "application/json"}
+            )
+
+    response = anyio.run(send)
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert "sensitive-value" not in response.text
+    assert response.json()["requestId"] == response.headers["x-request-id"]
